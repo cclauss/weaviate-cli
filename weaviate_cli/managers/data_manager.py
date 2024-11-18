@@ -145,6 +145,7 @@ class DataManager:
         cl: wvc.ConsistencyLevel,
         randomize: bool,
         vector_dimensions: Optional[int] = 1536,
+        named_vectors: Optional[List[str]] = None,
     ) -> Collection:
         if randomize:
             counter = 0
@@ -167,12 +168,16 @@ class DataManager:
                 vector_dimensions = 768
             with cl_collection.batch.dynamic() as batch:
                 for obj in data_objects:
-                    batch.add_object(
-                        properties=obj,
-                        vector=(
-                            2 * np.random.rand(1, vector_dimensions)[0] - 1
-                        ).tolist(),
-                    )
+                    # Generate vector(s) for the object
+                    if named_vectors is None:
+                        vector = (2 * np.random.rand(vector_dimensions) - 1).tolist()
+                        batch.add_object(properties=obj, vector=vector)
+                    else:
+                        vector = {
+                            name: (2 * np.random.rand(vector_dimensions) - 1).tolist()
+                            for name in named_vectors
+                        }
+                        batch.add_object(properties=obj, vector=vector)
                     counter += 1
 
             if cl_collection.batch.failed_objects:
@@ -199,6 +204,7 @@ class DataManager:
         randomize: bool = CreateDataDefaults.randomize,
         auto_tenants: int = CreateDataDefaults.auto_tenants,
         vector_dimensions: Optional[int] = CreateDataDefaults.vector_dimensions,
+        named_vectors: Optional[List[str]] = None,
     ) -> Collection:
 
         if not self.client.collections.exists(collection):
@@ -252,6 +258,7 @@ class DataManager:
                 cl_map[consistency_level],
                 randomize,
                 vector_dimensions,
+                named_vectors,
             )
 
             if len(collection) != limit:
