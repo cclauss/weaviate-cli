@@ -145,7 +145,7 @@ class DataManager:
         cl: wvc.ConsistencyLevel,
         randomize: bool,
         vector_dimensions: Optional[int] = 1536,
-    ) -> int:
+    ) -> Collection:
         if randomize:
             counter = 0
             data_objects = self.__generate_data_object(num_objects)
@@ -180,9 +180,8 @@ class DataManager:
                     print(
                         f"Failed to add object with UUID {failed_object.original_uuid}: {failed_object.message}"
                     )
-                return -1
             print(f"Inserted {counter} objects into class '{collection.name}'")
-            return counter
+            return cl_collection
         else:
             num_objects_inserted = self.__import_json(
                 collection, "movies.json", cl, num_objects
@@ -190,7 +189,7 @@ class DataManager:
             print(
                 f"Inserted {num_objects_inserted} objects into class '{collection.name}'"
             )
-            return num_objects_inserted
+            return collection
 
     def create_data(
         self,
@@ -200,7 +199,7 @@ class DataManager:
         randomize: bool = CreateDataDefaults.randomize,
         auto_tenants: int = CreateDataDefaults.auto_tenants,
         vector_dimensions: Optional[int] = CreateDataDefaults.vector_dimensions,
-    ) -> None:
+    ) -> Collection:
 
         if not self.client.collections.exists(collection):
 
@@ -245,29 +244,21 @@ class DataManager:
                     ]
 
         for tenant in tenants:
-            if tenant == "None":
-                ret = self.__ingest_data(
-                    col,
-                    limit,
-                    cl_map[consistency_level],
-                    randomize,
-                    vector_dimensions,
-                )
-            else:
+            if tenant != "None":
                 click.echo(f"Processing tenant '{tenant}'")
-                ret = self.__ingest_data(
-                    col.with_tenant(tenant),
-                    limit,
-                    cl_map[consistency_level],
-                    randomize,
-                    vector_dimensions,
-                )
+            collection = self.__ingest_data(
+                col.with_tenant(tenant) if tenant != "None" else col,
+                limit,
+                cl_map[consistency_level],
+                randomize,
+                vector_dimensions,
+            )
 
-            if ret == -1:
-
-                raise Exception(
-                    f"Error occurred while ingesting data for tenant '{tenant}'."
+            if len(collection) != limit:
+                click.echo(
+                    f"Error occurred while ingesting data for tenant '{tenant}'. Check number of objects inserted."
                 )
+            return collection
 
     def __update_data(
         self,
